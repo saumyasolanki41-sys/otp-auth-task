@@ -1,10 +1,6 @@
 const User=require("../models/user");
 const{hashPassword}=require("../utils/password");
-const{
-   generateOtp,
-  hashOtp,
-    OTP_EXPIRY_MS,
- }=require("../utils/otp");
+const{ generateOtp,hashOtp,OTP_EXPIRY_MS,matchesOtp,MAX_OTP_ATTEMPTS,}=require("../utils/otp");
   const{sendOtpEmail}=require("../services/email.service");
 
 const signup=async(req,res,next)=>{
@@ -69,4 +65,82 @@ const signup=async(req,res,next)=>{
   }
 };
 
-module.exports = { signup };
+const verifyOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.verificationData;
+    const user = await User.findOneAndUpdate(
+      {
+         email,
+          isVerified:false,
+         otpHash:{$type:"string" },
+        otpExpiresAt:{ $gt: new Date() },
+         otpAttempts:{ $lt: MAX_OTP_ATTEMPTS },
+      },
+        {
+        $inc:{otpAttempts:1},
+     },
+      {
+        returnDocument:"after",
+       }
+    ).select("+otpHash");
+
+    if (!user) {
+      return res.status(400).json({
+        success:false,
+        message: "Verification unavailable. The OTP may have expired, the attempt limit was reached, or the account is already verified.",
+      });
+    }
+
+    const isCorrect = matchesOtp(email, otp, user.otpHash);
+
+    if(!isCorrect){
+      return res.status(400).json({
+         success:false,
+        message:"Invalid OTP",
+      });
+    }
+    const verifiedUser=await User.findOneAndUpdate(
+      {
+        _id: user._id,
+        isVerified: false,
+        otpHash: user.otpHash,
+        otpExpiresAt:{ $eq: user.otpExpiresAt,$gt: new Date(),
+        },
+      },
+      {
+        $set:{
+          isVerified: true,
+          otpHash: null,
+          otpExpiresAt: null,
+          otpAttempts: 0,
+          otpLastSentAt: null,
+        },
+      },
+      {
+        returnDocument: "after",
+        runValidators: true,
+      }
+    );
+
+    if(!verifiedUser){
+      return res.status(400).json({
+        success:false,
+        message:"OTP is no longer available for verification.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message:"Email verified successfully. Registration is complete.",
+      data: {
+        id: verifiedUser._id,
+        name: verifiedUser.name,
+        email: verifiedUser.email,
+        isVerified: verifiedUser.isVerified,
+      },
+    });
+  } catch(error) {
+    next(error);
+  }
+};
+module.exports={signup,verifyOtp,};

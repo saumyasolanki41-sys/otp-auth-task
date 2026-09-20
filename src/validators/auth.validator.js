@@ -43,7 +43,7 @@ const validateSignup=(req,res,next)=>{
       );
   }
 
-  if(password.length < 6) {
+  if(password.length < 12) {
     return res.status(400).json({
       success: false,
       message: "Password must contain at least 12 characters",
@@ -65,4 +65,53 @@ const validateSignup=(req,res,next)=>{
    };
   next();
 };
-module.exports = { validateSignup };
+
+const validateVerifyOtp=(req,res,next)=>{
+  const body = req.body;
+   if(!body||typeof body!=="object"||Array.isArray(body)){
+    return res.status(400).json(
+    {
+      success:false,
+       message:"Request body must be a JSON object",
+    }
+);
+  }
+
+  const{email,otp}=body;
+  if(typeof email!=="string"||typeof otp!=="string"){
+    return res.status(400).json(
+  {
+       success:false,
+        message:"Email and OTP must be strings",
+    }
+  );
+ }
+   const cleanEmail=email.trim().toLowerCase();
+  const cleanOtp=otp.trim();
+   const emailPattern =/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (cleanEmail.length>254||!emailPattern.test(cleanEmail)){
+    return res.status(400).json(
+    {
+      success:false,
+       message:"Please provide a valid email address",
+      }
+  );
+  }
+
+  if(!/^\d{6}$/.test(cleanOtp)){
+    return res.status(400).json(
+    {
+      success:false,
+       message:"OTP must contain exactly 6 digits",
+    }
+  );
+    }
+
+  req.verificationData={
+     email:cleanEmail,
+    otp:cleanOtp,
+};
+
+  next();
+};
+module.exports = { validateSignup, validateVerifyOtp, };

@@ -10,4 +10,15 @@ const {rateLimit}=require("express-rate-limit");
   },
 }
 );
-module.exports={signupLimiter};
+const verifyOtpLimiter=rateLimit({
+    windowMs:15*60 *1000,
+   limit:30,
+   standardHeaders:"draft-8",
+   legacyHeaders:false,
+
+  message:{
+      success:false,
+    message:"Too many verification requests. Please try again after 15 minutes.",
+  },
+});
+module.exports={signupLimiter,verifyOtpLimiter,};
