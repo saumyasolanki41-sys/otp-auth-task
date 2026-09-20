@@ -1,5 +1,6 @@
+const { generateAccessToken } = require("../utils/token");
 const User=require("../models/user");
-const{hashPassword}=require("../utils/password");
+const{hashPassword,comparePassword,}=require("../utils/password");
 const{ generateOtp,hashOtp,OTP_EXPIRY_MS,matchesOtp,MAX_OTP_ATTEMPTS,}=require("../utils/otp");
   const{sendOtpEmail}=require("../services/email.service");
 
@@ -143,4 +144,57 @@ const verifyOtp = async (req, res, next) => {
     next(error);
   }
 };
-module.exports={signup,verifyOtp,};
+const login=async(req,res,next)=>{
+    try{
+   const{email,password}=req.loginData;
+    const user=await User.findOne({ email })
+      .select("+passwordHash");
+
+    if(!user){
+      return res.status(401).json({
+        success:false,
+        message:"Invalid email or password",
+       }
+      );
+   }
+
+    const isPasswordCorrect = await comparePassword(
+      password,user.passwordHash
+ );
+    if(!isPasswordCorrect){
+      return res.status(401).json({
+         success: false,
+        message: "Invalid email or password",
+      }
+       );
+    }
+
+    if(!user.isVerified){
+     return res.status(403).json({
+         success:false,
+        message:"Please verify your email before logging in",
+      }
+    );
+    }
+
+    const accessToken=generateAccessToken(user._id);
+    res.set("Cache-Control", "no-store");
+
+    return res.status(200).json({
+     success:true,
+      message:"Login successful",
+       data:{
+        accessToken, tokenType: "Bearer",expiresIn: 3600,
+      user: {
+        id: user._id,
+           name: user.name,
+          email: user.email,
+          isVerified: user.isVerified,
+         },
+ },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+module.exports={signup,verifyOtp,login,};
