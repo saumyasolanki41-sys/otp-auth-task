@@ -9,8 +9,8 @@ const generateAccessToken=(userId)=>{
   return jwt.sign({},secret,{
      algorithm: "HS256",
       subject: userId.toString(),
-      issuer:"otp-ath-task",
-     audience:"otp-auth-taskclient",
+      issuer:"otp-auth-task",
+     audience:"otp-auth-task-client",
      expiresIn:"1h",
   }
   );
